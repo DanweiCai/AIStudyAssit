@@ -88,7 +88,7 @@ Five concrete objectives:
 | G5 | Grounded Q&A chat over the uploaded sources with inline citations | P0 |
 | G6 | Persistent notebooks holding multiple sources and their artifacts | P0 |
 | G7 | Export artifacts to PDF, Markdown, and DOCX; audio to MP3 | P1 |
-| G8 | User accounts with private, isolated workspaces | P0 |
+| G8 | User accounts with private, isolated workspaces — **[local-v1: deferred, §2.4]** | P0 |
 
 ### 2.2 Out of Scope (v1)
 
@@ -107,6 +107,22 @@ Five concrete objectives:
 - **Not a homework-answering machine.** The product is framed around comprehension, not completing assignments on a student's behalf.
 - **Not a general chatbot.** The assistant is scoped to the user's uploaded material.
 - **Not a content library.** We do not supply textbooks or course content; the user brings their own sources.
+
+### 2.4 Deployment Scope — Local, Single-User (v1)
+
+**Owner decision, 2026-09-08.** v1 runs locally via `docker compose` and serves exactly one user. There is no hosted environment and no second account.
+
+Requirements this defers, marked **[local-v1]** where they appear:
+
+| Requirement | v1 treatment | Why deferred rather than deleted |
+|---|---|---|
+| G8 — user accounts | One seeded dev user; no signup, login, or password handling | `user_id` stays on every table and in every query, so multi-user later is a resolver swap, not a migration |
+| NFR-SEC-1 — authentication | Fixed dev token from `.env`; query-layer scoping retained | Same as above — the API contract does not change when real auth arrives |
+| NFR-SEC-2 — TLS 1.3 / AES-256 at rest | Not applicable over localhost | Supplied by the hosting platform if this is ever deployed |
+| NFR-SEC-7 — per-user rate limits | Not enforced | Rate limits protect a shared service from its users; nothing is shared here |
+| NFR-COST-2 — monthly quotas | **Enforcement** deferred; cost telemetry (NFR-COST-1) still built | The quota *numbers* are untouched — the `TECHNICAL_DESIGN.md` §7.5 contradiction stays live for T-134 to settle |
+
+**Not deferred:** the `user_id` column, query-layer scoping, NFR-SEC-3 (no training on user content), NFR-SEC-5 (content-type sniffing), and NFR-SEC-6 (SSRF protection). The last two defend against malformed input rather than against other users, so a single-user deployment does not make them safe to skip.
 
 ---
 
@@ -567,13 +583,13 @@ TIMELINE: <Notebook Title>
 
 | ID | Requirement |
 |---|---|
-| NFR-SEC-1 | Authentication required; sources and artifacts isolated per user account |
-| NFR-SEC-2 | Encryption in transit (TLS 1.3) and at rest (AES-256) |
+| NFR-SEC-1 | Authentication required; sources and artifacts isolated per user account. **[local-v1: §2.4 — one seeded dev user and a fixed `.env` token; query-layer scoping still enforced]** |
+| NFR-SEC-2 | Encryption in transit (TLS 1.3) and at rest (AES-256). **[local-v1: n/a over localhost, §2.4]** |
 | NFR-SEC-3 | User content is **not** used to train models; enforced via provider API settings and documented in the privacy policy |
 | NFR-SEC-4 | Full account and data deletion on request, completing within 30 days |
 | NFR-SEC-5 | Uploaded files are validated and scanned; content-type is verified rather than trusted from the extension |
 | NFR-SEC-6 | URL fetching restricted to public HTTP(S); SSRF protection against internal address ranges |
-| NFR-SEC-7 | Rate limiting per user: **20 uploads/hour**, **10 generations/hour**, **3 concurrent generation jobs**. Audio overviews additionally capped at **5/day** (highest unit cost). Values derived in `TECHNICAL_DESIGN.md` §7 |
+| NFR-SEC-7 | Rate limiting per user: **20 uploads/hour**, **10 generations/hour**, **3 concurrent generation jobs**. Audio overviews additionally capped at **5/day** (highest unit cost). Values derived in `TECHNICAL_DESIGN.md` §7. **[local-v1: not enforced, §2.4]** |
 | NFR-SEC-8 | FERPA-aware handling if institutional deployment is pursued (post-v1 assessment) |
 
 ### 7.6 Cost
@@ -581,7 +597,7 @@ TIMELINE: <Notebook Title>
 | ID | Requirement |
 |---|---|
 | NFR-COST-1 | Track LLM and TTS token/character spend per user and per notebook |
-| NFR-COST-2 | Enforce configurable per-user monthly quotas. **v1 free tier: 30 text artifacts + 3 audio overviews per month.** Quota consumption is charged on job *success* only — failed or cancelled jobs are refunded. Derivation in `TECHNICAL_DESIGN.md` §7 |
+| NFR-COST-2 | Enforce configurable per-user monthly quotas. **v1 free tier: 30 text artifacts + 3 audio overviews per month.** Quota consumption is charged on job *success* only — failed or cancelled jobs are refunded. Derivation in `TECHNICAL_DESIGN.md` §7. **[local-v1: enforcement deferred, §2.4 — tier numbers unchanged, T-134 still open]** |
 | NFR-COST-3 | Cache generated artifacts; never regenerate without explicit user action |
 | NFR-COST-4 | Use prompt caching for repeated source context across artifact generations |
 | NFR-COST-5 | Route work to appropriately-sized models per task (see §10.2) |
@@ -909,7 +925,7 @@ Proxy signals for v1: return rate during exam periods, artifacts exported (indic
 
 **Goal:** Prove the ingest → generate → read loop end-to-end.
 
-- Auth and notebook CRUD
+- Single-user context (seeded dev user, **[local-v1: §2.4]**) and notebook CRUD
 - Ingestion: PDF, pasted text
 - Processing pipeline: extract → chunk → locators → normalize (**no embeddings** — see FR-PROC-4 note)
 - Async job infrastructure with progress and cancellation

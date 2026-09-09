@@ -54,6 +54,8 @@ Audio is a separate worker pool specifically because a 12-minute overview occupi
 
 Base path `/v1`. JSON unless noted. Auth via `Authorization: Bearer <token>` on every route.
 
+**[local-v1]** Under the single-user local scope (`REQUIREMENTS.md` §2.4) the token is a fixed value read from `.env` that resolves to the seeded dev user. The header stays **required on every route** so this contract is unchanged the day real authentication is added.
+
 ### 2.1 Conventions
 
 | Aspect | Decision |

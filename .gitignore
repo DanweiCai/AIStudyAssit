@@ -1,0 +1,26 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+
+# Claude Code — personal, machine-local settings (skills/ IS shared)
+.claude/settings.local.json
