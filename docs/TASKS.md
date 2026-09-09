@@ -37,6 +37,7 @@ This is an execution list for an AI coding agent (or a human) working through th
 | Object storage | S3-compatible (MinIO locally) | Originals, MP3s, trace blobs |
 | LLM | `anthropic` Python SDK, `claude-opus-5` | TD §6 |
 | Parsing | PyMuPDF (PDF), python-pptx, python-docx, trafilatura (web) | TD §8.5 constraints |
+| Python packaging | `uv` workspace (T-001) | T-001 offered `uv` or Poetry. `uv` selected: it pins and fetches the 3.12+ interpreter itself, so a machine on an older system Python needs no separate pyenv step, and its workspace members map cleanly onto the separately-deployable `apps/api` and `apps/worker` |
 | Frontend | Next.js (App Router) + TypeScript | |
 | Vector store | Deferred to Phase 2 | REQ FR-PROC-4 is P1 |
 
@@ -66,12 +67,12 @@ Nothing user-facing ships here. The goal is that Phase 1 tasks can be executed w
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| T-001 🔧 | **Repo scaffold and tooling** — monorepo: `apps/api` (FastAPI), `apps/worker` (Celery), `apps/web` (Next.js), `packages/schemas` (JSON Schema). Python: `uv` or Poetry, `ruff`, `mypy --strict`, `pytest`. Web: TypeScript strict, ESLint, Prettier, Vitest. `.env.example` naming every variable. | — | TODO |
+| T-001 🔧 | **Repo scaffold and tooling** — monorepo: `apps/api` (FastAPI), `apps/worker` (Celery), `apps/web` (Next.js), `packages/schemas` (JSON Schema). Python: `uv` or Poetry, `ruff`, `mypy --strict`, `pytest`. Web: TypeScript strict, ESLint, Prettier, Vitest. `.env.example` naming every variable. | — | DONE |
 | T-002 🔧 | **Docker Compose dev environment** — Postgres, Redis, MinIO. One `docker compose up` gives a working local stack for both the Python services and the web app. | T-001 | TODO |
 | T-003 | **CI pipeline** — Python (ruff, mypy, pytest) and web (eslint, tsc, vitest) on every PR, **plus a check that generated schema types are not stale** (T-005). No deploy yet. | T-001, T-005 | TODO |
 | T-004 🔧 | **Database schema v1** — SQLAlchemy 2.0 models + Alembic migration for `User`, `Notebook`, `Source`, `Chunk`, `Artifact`, `GenerationJob` per `REQ §9`. Include `deleted_at`, `parent_artifact_id`, `trace_id`, `content_schema_version`, `text_normalized`. Omit `Embedding` (Phase 2). | T-002 | TODO |
 | T-005 🔧 | **Schema pipeline — single source of truth across the language boundary** — author the six `TD §4` schemas as JSON Schema in `packages/schemas`. Generate Pydantic models (`datamodel-code-generator`) and TS types (`json-schema-to-typescript`); commit both. Same files feed `output_config.format`. **Add the CI staleness check** — regenerate and fail if the diff is non-empty. This task is load-bearing for the whole build; see the stack note above. | T-001 | TODO |
-| T-006 | **Auth** — email/password or OAuth, session management, `Authorization: Bearer` middleware. Every route requires a user; per-user data isolation enforced at the query layer, not the handler layer. (`REQ NFR-SEC-1`) | T-004 | TODO |
+| T-006 | **Single-user context** — seed one dev user in the initial migration; `Authorization: Bearer` middleware resolving a fixed `.env` token to that user. Every route still requires a user, and isolation is still enforced **at the query layer, not the handler layer**, so multi-user later is a swap of the resolver rather than a migration. No signup, login UI, passwords, or OAuth. (`REQ §2.4`; `NFR-SEC-1` deferred) | T-004 | TODO |
 | T-007 | **Error envelope and error-code registry** — the `{error: {code, message, details}}` shape from `TD §2.1`, with every code from `TD §2.3` defined in one enum. | T-001 | TODO |
 | T-008 🔧 | **Job queue harness** — Celery + Redis executing against a **Postgres-owned `GenerationJob` row** implementing the `TD §3.1` state machine: 10-minute lease, exponential backoff, `attempt` tracking, `cancelling` state, and the retryable/terminal classification from `TD §3.3`. Do **not** use Celery's result backend as the job record — see the stack note. Test: kill a worker mid-job and confirm the job returns to `queued` with `attempt` incremented. | T-002, T-004 | TODO |
 | T-009 | **Trace record writer** — the `TD §9.1` structure, blobs to object storage, 30-day TTL. Wired into the job harness so every job emits one. (`REQ NFR-OBS-1/2`) | T-008 | TODO |
@@ -118,7 +119,7 @@ Target: `REQ §12 Phase 1`. A user uploads a PDF and gets a citation-backed stud
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| T-120 🔧 | **App shell + auth screens** | T-006 | TODO |
+| T-120 🔧 | **App shell** — no auth screens under the single-user scope (`REQ §2.4`) | T-006 | TODO |
 | T-121 🔧 | **Notebook list and detail views** | T-101, T-120 | TODO |
 | T-122 🔧 | **Upload UI** — drag-and-drop, multi-file, per-source progress and status, actionable error messages mapped from the `TD §2.3` codes. (`REQ FR-ING-7/8/9`) | T-102, T-121 | TODO |
 | T-123 🔧 | **Generation trigger + progress UI** — non-blocking, elapsed and estimated remaining time, never a bare indeterminate spinner (`REQ NFR-UX-6`). Consumes the SSE stream, falls back to polling. | T-118, T-121 | TODO |
@@ -136,9 +137,9 @@ Target: `REQ §12 Phase 1`. A user uploads a PDF and gets a citation-backed stud
 | T-130 | **Golden corpus v1** — 12 documents (subset of the `TD §8.1` 40), with human-authored reference outputs for Study Guide and Briefing. Include at least 2 adversarial documents. | T-111, T-112 | TODO |
 | T-131 | **Automated eval suite** — the `TD §8.2` gating metrics for the two Phase 1 artifacts. Runs in CI on prompt/model changes. Use the Batch API to keep run cost near `TD §8.4` figures. | T-130, T-003 | TODO |
 | T-132 | **Cost telemetry** — per-job, per-user, per-notebook token and dollar tracking from the trace `usage` fields. Dashboard showing cost/artifact and cache hit rate. (`REQ NFR-COST-1`) | T-009 | TODO |
-| T-133 | **Rate limiting and quotas** — the `REQ NFR-SEC-7` limits and `NFR-COST-2` quotas. Quota charged on success only. **See T-134 first.** | T-132 | TODO |
+| T-133 | **Rate limiting and quotas** — the `REQ NFR-SEC-7` limits and `NFR-COST-2` quotas. Quota charged on success only. **See T-134 first.** **[local-v1: enforcement deferred (`REQ §2.4`); build the counters behind a disabled flag so T-134 still has data to reason about.]** | T-132 | TODO |
 | T-134 | **Resolve the free-tier contradiction** — `TD §7.5` shows the requirements' drafted tier (30 text + 3 audio) costs ~$5.55/user/month and recommends 10 text + 1 audio. Validate against Phase 1 real cost telemetry, then amend `REQ NFR-COST-2`. **Product decision, not an engineering one.** | T-132 | TODO |
-| T-135 | **Deletion cascade test** — a user-deletion request purges sources, chunks, artifacts, **and trace blobs**. Traces live in a different bucket and are the most likely thing to be missed (`TD §9.2`). Explicit test required. | T-009, T-006 | TODO |
+| T-135 | **Deletion cascade test** — a deletion request (notebook, source, or the whole user) purges sources, chunks, artifacts, **and trace blobs**. Traces live in a different bucket and are the most likely thing to be missed (`TD §9.2`). Explicit test required. | T-009, T-006 | TODO |
 
 **Phase 1 exit:** `REQ §12 Phase 1` exit criteria met — upload a PDF, get a correct citation-backed study guide within NFR-PERF-8 (< 3 min p95). Eval suite green. Cost per artifact measured against `TD §7.3`.
 
@@ -242,7 +243,7 @@ Append here rather than guessing. Each entry: what is ambiguous, which task it b
 
 | # | Item | Blocks | Assumption made | Status |
 |---|---|---|---|---|
-| — | *(none yet)* | | | |
+| 1 | **Deployment scope: local, single-user.** Owner decision 2026-09-08. No hosted environment; `docker compose` is the only target. G8 and `NFR-SEC-1/2/7` deferred; T-006 reduced from an auth system to a seeded dev user; T-120 loses its auth screens; T-133 enforcement disabled. | — | `user_id` and query-layer scoping are **retained**, so restoring multi-user is a resolver swap rather than a schema migration. Quota *numbers* were deliberately left alone — the `TD §7.5` vs `NFR-COST-2` contradiction stays live for T-134. | RESOLVED — recorded in `REQ §2.4` |
 
 ---
 

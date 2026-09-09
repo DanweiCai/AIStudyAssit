@@ -1,0 +1,56 @@
+[project]
+name = "aistudyassist"
+version = "0.1.0"
+description = "AI Study Assistant — monorepo root (tooling only; services live in apps/)"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/api", "apps/worker"]
+
+[tool.uv.sources]
+aistudyassist-api = { workspace = true }
+aistudyassist-worker = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "aistudyassist-api",
+    "aistudyassist-worker",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "httpx>=0.28",
+]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "ANN", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "worker"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = ["apps/api/src", "apps/worker/src"]
+explicit_package_bases = true
+exclude = ["^apps/web/", "^\\.venv/"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests", "apps/worker/tests"]
+pythonpath = ["apps/api/src", "apps/worker/src"]
+addopts = "-q"
