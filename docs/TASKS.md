@@ -37,6 +37,7 @@ This is an execution list for an AI coding agent (or a human) working through th
 | Object storage | S3-compatible (MinIO locally) | Originals, MP3s, trace blobs |
 | LLM | `anthropic` Python SDK, `claude-opus-5` | TD §6 |
 | Parsing | PyMuPDF (PDF), python-pptx, python-docx, trafilatura (web) | TD §8.5 constraints |
+| Python packaging | `uv` workspace (T-001) | T-001 offered `uv` or Poetry. `uv` selected: it pins and fetches the 3.12+ interpreter itself, so a machine on an older system Python needs no separate pyenv step, and its workspace members map cleanly onto the separately-deployable `apps/api` and `apps/worker` |
 | Frontend | Next.js (App Router) + TypeScript | |
 | Vector store | Deferred to Phase 2 | REQ FR-PROC-4 is P1 |
 
@@ -66,7 +67,7 @@ Nothing user-facing ships here. The goal is that Phase 1 tasks can be executed w
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| T-001 🔧 | **Repo scaffold and tooling** — monorepo: `apps/api` (FastAPI), `apps/worker` (Celery), `apps/web` (Next.js), `packages/schemas` (JSON Schema). Python: `uv` or Poetry, `ruff`, `mypy --strict`, `pytest`. Web: TypeScript strict, ESLint, Prettier, Vitest. `.env.example` naming every variable. | — | WIP |
+| T-001 🔧 | **Repo scaffold and tooling** — monorepo: `apps/api` (FastAPI), `apps/worker` (Celery), `apps/web` (Next.js), `packages/schemas` (JSON Schema). Python: `uv` or Poetry, `ruff`, `mypy --strict`, `pytest`. Web: TypeScript strict, ESLint, Prettier, Vitest. `.env.example` naming every variable. | — | DONE |
 | T-002 🔧 | **Docker Compose dev environment** — Postgres, Redis, MinIO. One `docker compose up` gives a working local stack for both the Python services and the web app. | T-001 | TODO |
 | T-003 | **CI pipeline** — Python (ruff, mypy, pytest) and web (eslint, tsc, vitest) on every PR, **plus a check that generated schema types are not stale** (T-005). No deploy yet. | T-001, T-005 | TODO |
 | T-004 🔧 | **Database schema v1** — SQLAlchemy 2.0 models + Alembic migration for `User`, `Notebook`, `Source`, `Chunk`, `Artifact`, `GenerationJob` per `REQ §9`. Include `deleted_at`, `parent_artifact_id`, `trace_id`, `content_schema_version`, `text_normalized`. Omit `Embedding` (Phase 2). | T-002 | TODO |
